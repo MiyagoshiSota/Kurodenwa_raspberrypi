@@ -1,6 +1,10 @@
 const { initializeApp } = require("firebase/app");
 const { getFirestore, collection, getDocs } = require("firebase/firestore");
-require('dotenv').config()
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+
+require("dotenv").config();
+
+let alarms = [];
 
 // Firebaseプロジェクトの設定
 const firebaseConfig = {
@@ -17,15 +21,23 @@ async function getAlarms(db) {
   const alarmSnapshot = await getDocs(alarmsCol);
   const alarmList = alarmSnapshot.docs.map((doc) => ({
     id: doc.id,
-    ...doc.data(), 
+    ...doc.data(),
   }));
   return alarmList;
 }
 
-getAlarms(db)
-  .then((alarms) => {
-    console.log("alarm list:", alarms);
-  })
-  .catch((error) => {
-    console.error("Error fetching alarms:", error);
-  });
+//アラームの作成時にトリガーされる
+exports.createuser = onDocumentCreated("alarms/{alarmId}", (event) => {
+  const snapshot = event.data;
+  if (!snapshot) {
+    console.log("No data associated with the event");
+    return;
+  }
+
+  const data = snapshot.data();
+  const name = data.name;
+
+  console.log(name);
+
+  alarms = getAlarms(db);
+});
