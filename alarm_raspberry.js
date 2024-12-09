@@ -26,40 +26,38 @@ const parser = port.pipe(new ReadlineParser({ delimiter: "\n" }));
 parser.on("data", (data) => {
   const dataArray = data.split(",");
   if (isRinging) {
-    // 受話器を取ったか
+    // 受話器を取ったか確認
     if (parseInt(dataArray[0]) === 0) {
-      isRinging = false;
-      sendData("0");
+        isRinging = false;
+        sendData("0");
 
-      // 現在のアラームのvoiceを取得して送信
-      if (currentVoice) {
-        sendVoiceData(currentVoice);
-        currentVoice = null; // voiceの送信後にリセット
-      }
+        // 現在のアラームのvoiceを取得して送信
+        if (currentVoice) {
+            sendVoiceData(currentVoice);
+            currentVoice = null; // voiceの送信後にリセット
+        }
+    } else if (parseInt(dataArray[1]) !== 0) {
+        const delayInSeconds = parseInt(dataArray[1]);
+
+        // 現在の時刻を基に処理の時間を設定
+        const now = new Date();
+        const targetTime = new Date(now.getTime() + delayInSeconds * 1000);
+
+        const cronTime = `${targetTime.getSeconds()} ${targetTime.getMinutes()} ${targetTime.getHours()} * * *`;
+
+        const job = cron.schedule(`${cronTime}`, () => {
+          console.log(`snooth ${new Date()}`);
+        
+          sendData("1");
+        
+          job.stop(); // 一度実行したらジョブを停止
+        });
+
+        job.start();
+
+        console.log(`Job scheduled to run at ${targetTime}`);
     }
-    // ダイヤルを回したか→回した場合はそのパルス分
-    else if (parseInt(dataArray[1]) !== 0) {
-      const delayInMinits = parseInt(dataArray[1]);
-
-      // 現在の時刻を基に処理の時間を設定
-      const now = new Date();
-      const targetTime = new Date(now.getTime() + delayInMinits * 60000);
-
-      const cronTime = `${targetTime.getSeconds()} ${targetTime.getMinutes()} ${targetTime.getHours()} * * *`;
-
-      const job = new CronJob(cronTime, () => {
-        console.log(`Scheduled job executed at ${new Date()}`);
-
-        sendData("1");
-
-        job.stop(); // 一度実行したらジョブを停止
-      });
-
-      job.start();
-
-      console.log(`Job scheduled to run at ${targetTime}`);
-    }
-  }
+}
 });
 
 function sendData(data) {
@@ -116,14 +114,11 @@ function createFunctionForDoc(id, time, week_day, alarm_status) {
     const job = cron.schedule(
       `0 ${timeArray[1]} ${timeArray[0]} * * ${formattedWd}`,
       () => {
-        //重複して鳴らすのを止める
-        if (!isRinging) {
-          sendData("1");
-          console.log("アラームが発火しました");
+        sendData("1");
+        console.log("アラームが発火しました");
 
-          // アラーム発火時にcurrentVoiceにvoiceデータを設定
-          currentVoice = voiceDataMap.get(id);
-        }
+        // アラーム発火時にcurrentVoiceにvoiceデータを設定
+        currentVoice = voiceDataMap.get(id);
       }
     );
 
